@@ -1,6 +1,6 @@
 📦 Paketbaustelle
 
-Beherbergt u.a. von eigenen Anwendungen wie: IT Support Box die Softwareverteilung Batch oder PS1 Dateien. Es ist eine modulare Software- und Deployment-Lösung zur standardisierten Bereitstellung, Installation und Wartung von Anwendungen in Unternehmensumgebungen (mit SCCM/ Intune).
+Beherbergt unter anderen von eigenen Anwendungen wie dem Programm: "IT Support Box" die Softwareverteilung Batch und oder PS1 Dateien. Es ist eine modulare Software- und Deployment-Lösung zur standardisierten Bereitstellung, Installation und Wartung von Anwendungen in Unternehmensumgebungen (mit SCCM/ Intune).
 
 Ziel ist es, meine eigenen Softwarepakete reproduzierbar, dokumentiert und automatisierbar für den Rollout bereitzustellen.
 
