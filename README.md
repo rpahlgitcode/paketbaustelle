@@ -23,12 +23,11 @@ Paketbaustelle
 
 Packages
 SoftwareName
-├── Install.bat
-├── Uninstall.bat
-├── Detection.txt
+Install.bat
+Uninstall.bat
+Detection.txt
 Optional: README.txt
-├── Documentation/
-└── Tools/
+Documentation: Tools
 
 Jedes Softwarepaket enthält:
 
