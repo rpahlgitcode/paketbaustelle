@@ -1,0 +1,5 @@
+Dateibasiert:
+C:\Program Files\itsupportbox
+itsupportbox.exe
+
+Vorhanden JA / Nein 
