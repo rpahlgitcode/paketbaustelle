@@ -19,17 +19,14 @@ Architektur
 
 Die Projektstruktur folgt einem modularen Ansatz:
 
-Paketbaustelle/
-│
-├── Packages/
-│   ├── SoftwareName/
-│   │   ├── Install.bat
-│   │   ├── Uninstall.bat
-│   │   ├── Detection.txt
-│   │   └── Optional: README.txt
-│   │
-│   └── ...
-│
+Paketbaustelle
+
+Packages
+SoftwareName
+├── Install.bat
+├── Uninstall.bat
+├── Detection.txt
+Optional: README.txt
 ├── Documentation/
 └── Tools/
 
