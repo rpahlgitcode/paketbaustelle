@@ -1,6 +1,7 @@
 📦 Paketbaustelle
 
-Ihr findet hier Primär die Installations- und Deinstallations- Skripte für Software Pakete (Hinweis: die Sourcen sind nicht enthalten).
+Ihr findet hier Primär die Installations- und Deinstallations- Skripte für eigene Software Pakete in den benannten Ordnern aber
+auch die Anwendung (Software Produkt) von mir als Installations- Setup (gepackt als ZIP) wird hier bereitgestellt.
 
 Projektziel
 
