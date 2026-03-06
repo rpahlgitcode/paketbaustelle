@@ -1,0 +1,15 @@
+Anwendung: IT-Support Box Setup (Rollout)
+
+Install: 
+"IT-Support Box Setup.exe" /SUPPRESSMSGBOXES /verysilent
+
+Hinweis: Start Menue Verknuepfung wird angelegt, 
+Desktop Verknüpfung nicht 
+
+Uninstall:
+"C:\Program Files\itsupportbox\unins000.exe" /SUPPRESSMSGBOXES /VERYSILENT
+
+REG KEY:
+Eintrag zu finden unter:
+Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\
+
