@@ -7,7 +7,7 @@ Projektziel
 
 Die Paketbaustelle dient als zentraler Anlaufpunkt für:
 
-Standardisierte Install- und Uninstall-Routinen
+Standardisierte Setups sowie für den Software Rollout: Install- und Uninstall-Routinen
 Silent-Install-Konfigurationen
 Unternehmenskompatible Deployment-Skripte
 Dokumentierte Paketstrukturen
