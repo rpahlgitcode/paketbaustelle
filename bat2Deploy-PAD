@@ -1,9 +1,9 @@
 ; ##################################################################
 ; Project:      bat2Deploy-PAD
-; Version:      v1.0 Stable Release
+; Version:      1.0
 ; Author:       Roland Pahl
 ; AI-Engine:    Gemini AI
-; License:      MIT License
+; Website:      www.rolandpahl-informatik.de
 ; ##################################################################
 
 #include <GUIConstantsEx.au3>
@@ -21,7 +21,7 @@
 Global $sAppName = "bat2Deploy-PAD"
 Global $sAuthor = "Roland Pahl"
 Global $sAI = "Gemini AI"
-Global $sVersion = "v1.0"
+Global $sVersion = "1.0"
 Global $sLicense = "MIT License"
 
 ; --- Hauptfenster ---
@@ -55,7 +55,7 @@ _GUICtrlStatusBar_SetParts($hStatus, $aParts)
 _GUICtrlStatusBar_SetText($hStatus, "Bereit", 0)
 _GUICtrlStatusBar_SetText($hStatus, "© " & $sAuthor, 1)
 
-; --- Kontextmenü ---
+; --- Kontextmenü (Rechtsklick) ---
 Global $hContextMenu = GUICtrlCreateContextMenu()
 Global $hCtxUndo = GUICtrlCreateMenuItem("Rückgängig (Strg+Z)", $hContextMenu)
 GUICtrlCreateMenuItem("", $hContextMenu)
@@ -78,6 +78,7 @@ Global $sAktuelleDatei = ""
 Global $iLetzteZeilenAnzahl = -1
 Global $hUser32 = DllOpen("user32.dll")
 
+; Hotkeys
 Dim $aAccel[6][2] = [["^c", $hCtxCopy], ["^v", $hCtxPaste], ["^x", $hCtxCut], ["^z", $hCtxUndo], ["{F5}", $hRunTest], ["^r", $hHighlight]]
 GUISetAccelerators($aAccel)
 
@@ -168,28 +169,10 @@ Func _ShowDeploymentWiki()
     Local $hWiki = GUICreate("Deployment Quick-Doc", 550, 500, -1, -1, -1, $WS_EX_TOOLWINDOW, $hGUI)
     Local $idEdit = GUICtrlCreateEdit("", 10, 10, 530, 430, BitOR($ES_READONLY, $WS_VSCROLL, $ES_MULTILINE))
     GUICtrlSetFont($idEdit, 9, 400, 0, "Segoe UI")
-
-    Local $sWikiText = "DEPLOYMENT BEST PRACTICES" & @CRLF & _
-        "========================================" & @CRLF & @CRLF & _
-        "1. MSI INSTALLATION (msiexec)" & @CRLF & _
-        "   /i          - Installieren" & @CRLF & _
-        "   /qn         - Silent (keine UI)" & @CRLF & _
-        "   /norestart  - Reboot unterdrücken" & @CRLF & _
-        "   /L*V 'log'  - Verbose Logging" & @CRLF & @CRLF & _
-        "2. EXE/SETUP PARAMETER" & @CRLF & _
-        "   Inno Setup:  /VERYSILENT /SUPPRESSMSGBOXES" & @CRLF & _
-        "   InstallShield: /s /v""/qn""" & @CRLF & @CRLF & _
-        "3. ERRORLEVEL CHECK" & @CRLF & _
-        "   if %errorlevel% neq 0 (exit /b %errorlevel%)" & @CRLF & _
-        "   Wichtig: 3010 bedeutet 'Erfolg, aber Reboot nötig'." & @CRLF & @CRLF & _
-        "4. PFADE" & @CRLF & _
-        "   Nutzen Sie %~dp0 für das aktuelle Skriptverzeichnis." & @CRLF & _
-        "   Pfade mit Leerzeichen IMMER in ""Anführungszeichen""."
-
+    Local $sWikiText = "DEPLOYMENT GUIDE" & @CRLF & "=================" & @CRLF & @CRLF & "..."
     GUICtrlSetData($idEdit, $sWikiText)
-    Local $idClose = GUICtrlCreateButton("Verstanden", 225, 450, 100, 30)
+    Local $idClose = GUICtrlCreateButton("Schließen", 225, 450, 100, 30)
     GUISetState(@SW_SHOW, $hWiki)
-
     While 1
         Switch GUIGetMsg()
             Case $idClose, $GUI_EVENT_CLOSE
@@ -200,28 +183,45 @@ Func _ShowDeploymentWiki()
 EndFunc
 
 Func _TemplateErstellen($sType)
-    Local $sProject = InputBox("Projekt-Setup", "Name des Tools:", "MeinTool", "", 300, 130)
+    Local $sProject = InputBox("Projekt-Setup", "Geben Sie den Namen Ihres Tools ein:", "MeinTool", "", 300, 130)
     If @error Or $sProject = "" Then Return
 
     Local $sCode = ""
     If $sType = "INSTALL" Then
         $sCode = "@echo off" & @CRLF & "setlocal enabledelayedexpansion" & @CRLF & @CRLF & _
                  ":: ========================================================================" & @CRLF & _
-                 ":: STANDALONE ROLLOUT - PROJEKT: " & $sProject & @CRLF & _
+                 ":: STANDALONE (NoINSTALL) ROLLOUT - " & $sProject & @CRLF & _
                  ":: ========================================================================" & @CRLF & _
                  "set ""TOOLNAME=" & $sProject & """" & @CRLF & _
                  "set ""LOGDIR=C:\ProgramData\softlogs\Logs""" & @CRLF & _
                  "set ""LOGFILE=%LOGDIR%\%TOOLNAME%_install_log.txt""" & @CRLF & _
                  "if not exist ""%LOGDIR%"" mkdir ""%LOGDIR%""" & @CRLF & @CRLF & _
-                 "echo Install start: %date% %time% > ""%LOGFILE%""" & @CRLF & @CRLF & _
-                 "start /wait taskkill /IM ""%TOOLNAME%.exe"" /F /T >nul 2>&1" & @CRLF & _
-                 "xcopy ""%~dp0%TOOLNAME%.exe"" ""C:\Program Files\%TOOLNAME%\"" /Y /I /R >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
+                 "echo Installation gestartet am %date% %time% > ""%LOGFILE%""" & @CRLF & @CRLF & _
+                 ":: 1. Prozess beenden" & @CRLF & _
+                 "start /wait taskkill /IM ""%TOOLNAME%.exe"" /F /T >nul 2>&1" & @CRLF & @CRLF & _
+                 ":: 2. Verzeichnisstruktur" & @CRLF & _
+                 "if exist ""C:\Program Files\%TOOLNAME%"" rmdir /s /q ""C:\Program Files\%TOOLNAME%""" & @CRLF & _
+                 "mkdir ""C:\Program Files\%TOOLNAME%"" >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
+                 ":: 3. Programmdatei kopieren" & @CRLF & _
+                 "xcopy ""%~dp0%TOOLNAME%.exe"" ""C:\Program Files\%TOOLNAME%\"" /O /X /E /H /K /R /Y >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
+                 ":: OPTIONAL: Zusaetzlichen Ordner kopieren" & @CRLF & _
+                 "rem if exist ""%~dp0Files"" xcopy ""%~dp0Files\*"" ""C:\Program Files\%TOOLNAME%\"" /S /E /H /Y /R >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
+                 ":: 4. Verknuepfungen kopieren" & @CRLF & _
+                 "xcopy ""%~dp0%TOOLNAME%.lnk"" ""C:\ProgramData\Microsoft\Windows\Start Menu\Programs\"" /Y /R" & @CRLF & _
+                 "xcopy ""%~dp0%TOOLNAME%.lnk"" ""C:\Users\Public\Desktop\"" /Y /R" & @CRLF & @CRLF & _
                  "echo SUCCESS > ""%LOGDIR%\%TOOLNAME%_install_ok.txt""" & @CRLF & "timeout 5"
     Else
-        $sCode = "@echo off" & @CRLF & ":: DEINSTALLATION - " & $sProject & @CRLF & _
+        $sCode = "@echo off" & @CRLF & "setlocal enabledelayedexpansion" & @CRLF & @CRLF & _
+                 ":: STANDALONE (NoINSTALL) DEINSTALLATION - " & $sProject & @CRLF & _
                  "set ""TOOLNAME=" & $sProject & """" & @CRLF & _
-                 "rmdir /s /q ""C:\Program Files\%TOOLNAME%"" 2>nul" & @CRLF & _
-                 "echo DEINSTALLED >> ""C:\ProgramData\softlogs\Logs\%TOOLNAME%_uninstall.log""" & @CRLF & "timeout 5"
+                 "set ""LOGDIR=C:\ProgramData\softlogs\Logs""" & @CRLF & _
+                 "set ""LOGFILE=%LOGDIR%\%TOOLNAME%_uninstall_log.txt""" & @CRLF & @CRLF & _
+                 "taskkill /IM ""%TOOLNAME%.exe"" /F /T >nul 2>&1" & @CRLF & _
+                 "rmdir /s /q ""C:\Program Files\%TOOLNAME%"" >> ""%LOGFILE%"" 2>&1" & @CRLF & _
+                 "del /f /q ""C:\ProgramData\Microsoft\Windows\Start Menu\Programs\%TOOLNAME%.lnk"" >nul 2>&1" & @CRLF & _
+                 "del /f /q ""C:\Users\Public\Desktop\%TOOLNAME%.lnk"" >nul 2>&1" & @CRLF & _
+                 "del /f /q ""%LOGDIR%\%TOOLNAME%_install_ok.txt"" >nul 2>&1" & @CRLF & @CRLF & _
+                 "echo CLEANUP COMPLETED am %date% %time% >> ""%LOGFILE%""" & @CRLF & "timeout 15"
     EndIf
     _GUICtrlRichEdit_SetText($hRichEdit, $sCode)
     _DoBatchHighlight()
@@ -243,7 +243,7 @@ Func _DoBatchHighlight()
     Local $aKeywords = [ _
         ["@echo", $cLogik], ["echo", $cLogik], ["set", $cLogik], ["rem", 0x808080], ["if", $cLogik], ["else", $cLogik], _
         ["start", $cInstall], ["msiexec", $cInstall], ["ping", $cNetz], ["copy", $cFile], ["xcopy", $cFile], _
-        ["timeout", $cSteuer], ["pause", $cSteuer], ["reg", $cSystem], ["/qn", $cParam]]
+        ["timeout", $cSteuer], ["pause", $cSteuer], ["reg", $cSystem], ["/qn", $cParam], ["%TOOLNAME%", 0xA52A2A]]
 
     _GUICtrlRichEdit_PauseRedraw($hRichEdit)
     Local $aSavedSel = _GUICtrlRichEdit_GetSel($hRichEdit)
@@ -315,7 +315,7 @@ Func _ShowAbout()
     Local $sMsgText = $sAppName & " " & $sVersion & @CRLF & _
            "-------------------------------------------" & @CRLF & _
            "AI-native Developer: " & $sAuthor & @CRLF & _
-           "Konzept & Prompt-Engineering" & @CRLF & _
+           "Konzept & Prompt-Engineering: Roland Pahl" & @CRLF & _
            "KI-Engine: " & $sAI & @CRLF & _
            "-------------------------------------------" & @CRLF & _
            "Lizenz: " & $sLicense & " (Open Source)" & @CRLF & _
@@ -323,6 +323,5 @@ Func _ShowAbout()
            "-------------------------------------------" & @CRLF & _
            "Frei zur Modifikation und Weitergabe unter" & @CRLF & _
            "Einhaltung der MIT-Lizenzbedingungen."
-
     MsgBox($MB_ICONINFORMATION, "Über " & $sAppName, $sMsgText)
 EndFunc
