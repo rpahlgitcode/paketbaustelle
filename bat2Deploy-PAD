@@ -55,7 +55,7 @@ _GUICtrlStatusBar_SetParts($hStatus, $aParts)
 _GUICtrlStatusBar_SetText($hStatus, "Bereit", 0)
 _GUICtrlStatusBar_SetText($hStatus, "© " & $sAuthor, 1)
 
-; --- Kontextmenü (Rechtsklick) ---
+; --- Kontextmenü ---
 Global $hContextMenu = GUICtrlCreateContextMenu()
 Global $hCtxUndo = GUICtrlCreateMenuItem("Rückgängig (Strg+Z)", $hContextMenu)
 GUICtrlCreateMenuItem("", $hContextMenu)
@@ -78,7 +78,6 @@ Global $sAktuelleDatei = ""
 Global $iLetzteZeilenAnzahl = -1
 Global $hUser32 = DllOpen("user32.dll")
 
-; Hotkeys
 Dim $aAccel[6][2] = [["^c", $hCtxCopy], ["^v", $hCtxPaste], ["^x", $hCtxCut], ["^z", $hCtxUndo], ["{F5}", $hRunTest], ["^r", $hHighlight]]
 GUISetAccelerators($aAccel)
 
@@ -100,46 +99,32 @@ While 1
             _GUICtrlRichEdit_Destroy($hRichEdit)
             DllClose($hUser32)
             ExitLoop
-
         Case $hNeu
             _Neu()
-
         Case $hNewProject
             _TemplateErstellen("INSTALL")
-
         Case $hNewUninstall
             _TemplateErstellen("UNINSTALL")
-
         Case $hOeffnen
             _DateiOeffnen()
-
         Case $hSpeichern
             _DateiSpeichern()
-
         Case $hSpeichernUnter
             _DateiSpeichernUnter()
-
         Case $hRunTest
             _SkriptTesten()
-
         Case $hHighlight
             _DoBatchHighlight()
-
         Case $hDeploymentWiki
             _ShowDeploymentWiki()
-
         Case $hCtxUndo
             _GUICtrlRichEdit_Undo($hRichEdit)
-
         Case $hCtxCopy
             _GUICtrlRichEdit_Copy($hRichEdit)
-
         Case $hCtxCut
             _GUICtrlRichEdit_Cut($hRichEdit)
-
         Case $hCtxPaste
             _GUICtrlRichEdit_Paste($hRichEdit)
-
         Case $hAbout
             _ShowAbout()
     EndSwitch
@@ -166,13 +151,35 @@ Func _Neu()
 EndFunc
 
 Func _ShowDeploymentWiki()
-    Local $hWiki = GUICreate("Deployment Quick-Doc", 550, 500, -1, -1, -1, $WS_EX_TOOLWINDOW, $hGUI)
-    Local $idEdit = GUICtrlCreateEdit("", 10, 10, 530, 430, BitOR($ES_READONLY, $WS_VSCROLL, $ES_MULTILINE))
-    GUICtrlSetFont($idEdit, 9, 400, 0, "Segoe UI")
-    Local $sWikiText = "DEPLOYMENT GUIDE" & @CRLF & "=================" & @CRLF & @CRLF & "..."
+    Local $hWiki = GUICreate("Deployment Quick-Doc", 580, 520, -1, -1, -1, $WS_EX_TOOLWINDOW, $hGUI)
+    Local $idEdit = GUICtrlCreateEdit("", 10, 10, 560, 450, BitOR($ES_READONLY, $WS_VSCROLL, $ES_MULTILINE))
+    GUICtrlSetFont($idEdit, 9, 400, 0, "Consolas")
+
+    Local $sWikiText = "DEPLOYMENT GUIDE (Best Practices)" & @CRLF & _
+        "========================================" & @CRLF & @CRLF & _
+        "1. VORBEREITUNG (@echo off)" & @CRLF & _
+        "Unterdrückt die Befehlsausgabe für ein sauberes Log." & @CRLF & @CRLF & _
+        "2. INSTALLATION (msiexec /i)" & @CRLF & _
+        "Startet den Windows Installer. Wichtigste Flags:" & @CRLF & _
+        "  /qn          - Vollständig leise (Silent)" & @CRLF & _
+        "  /norestart   - Verhindert ungewollte Reboots" & @CRLF & _
+        "  /L*V 'Pfad'  - Erstellt ein detailliertes Log" & @CRLF & @CRLF & _
+        "3. EXE-SETUP (/SILENT /VERYSILENT)" & @CRLF & _
+        "Standard bei InnoSetup. /VERYSILENT unterdrückt auch " & @CRLF & _
+        "das Initialisierungsfenster." & @CRLF & @CRLF & _
+        "4. VARIABLEN (set)" & @CRLF & _
+        "Nutzen Sie 'set local', um Umgebungsvariablen nur " & @CRLF & _
+        "innerhalb des Skripts gültig zu machen." & @CRLF & @CRLF & _
+        "5. STATUSPRÜFUNG (%ERRORLEVEL%)" & @CRLF & _
+        "Prüfen Sie nach jedem Befehl mit 'if %errorlevel% neq 0'," & @CRLF & _
+        "ob die Installation erfolgreich war (0 = Erfolg)." & @CRLF & @CRLF & _
+        "6. ABSCHLUSS (timeout / pause / exit)" & @CRLF & _
+        "Nutzen Sie 'pause' nur zum Debuggen, nie im Live-Rollout!"
+
     GUICtrlSetData($idEdit, $sWikiText)
-    Local $idClose = GUICtrlCreateButton("Schließen", 225, 450, 100, 30)
+    Local $idClose = GUICtrlCreateButton("Schließen", 240, 475, 100, 30)
     GUISetState(@SW_SHOW, $hWiki)
+
     While 1
         Switch GUIGetMsg()
             Case $idClose, $GUI_EVENT_CLOSE
@@ -183,7 +190,7 @@ Func _ShowDeploymentWiki()
 EndFunc
 
 Func _TemplateErstellen($sType)
-    Local $sProject = InputBox("Projekt-Setup", "Geben Sie den Namen Ihres Tools ein:", "MeinTool", "", 300, 130)
+    Local $sProject = InputBox("Projekt-Setup", "Name des Tools:", "MeinTool", "", 300, 130)
     If @error Or $sProject = "" Then Return
 
     Local $sCode = ""
@@ -203,7 +210,7 @@ Func _TemplateErstellen($sType)
                  "if exist ""C:\Program Files\%TOOLNAME%"" rmdir /s /q ""C:\Program Files\%TOOLNAME%""" & @CRLF & _
                  "mkdir ""C:\Program Files\%TOOLNAME%"" >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
                  ":: 3. Programmdatei kopieren" & @CRLF & _
-                 "xcopy ""%~dp0%TOOLNAME%.exe"" ""C:\Program Files\%TOOLNAME%\"" /O /X /E /H /K /R /Y >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
+                 "xcopy ""%~dp0%TOOLNAME%.exe"" ""C:\Program Files\%TOOLNAME%\"" /I /E /H /K /R /Y >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
                  ":: OPTIONAL: Zusaetzlichen Ordner kopieren" & @CRLF & _
                  "rem if exist ""%~dp0Files"" xcopy ""%~dp0Files\*"" ""C:\Program Files\%TOOLNAME%\"" /S /E /H /Y /R >> ""%LOGFILE%"" 2>&1" & @CRLF & @CRLF & _
                  ":: 4. Verknuepfungen kopieren" & @CRLF & _
@@ -227,6 +234,8 @@ Func _TemplateErstellen($sType)
     _DoBatchHighlight()
 EndFunc
 
+; ... [Restliche Funktionen identisch wie v1.4.5] ...
+
 Func _SkriptTesten()
     Local $sTempFile = @TempDir & "\bat2Deploy_Test.bat"
     Local $sRawText = _GUICtrlRichEdit_GetText($hRichEdit)
@@ -243,7 +252,7 @@ Func _DoBatchHighlight()
     Local $aKeywords = [ _
         ["@echo", $cLogik], ["echo", $cLogik], ["set", $cLogik], ["rem", 0x808080], ["if", $cLogik], ["else", $cLogik], _
         ["start", $cInstall], ["msiexec", $cInstall], ["ping", $cNetz], ["copy", $cFile], ["xcopy", $cFile], _
-        ["timeout", $cSteuer], ["pause", $cSteuer], ["reg", $cSystem], ["/qn", $cParam], ["%TOOLNAME%", 0xA52A2A]]
+        ["timeout", $cSteuer], ["pause", $cSteuer], ["reg", $cSystem], ["/qn", $cParam]]
 
     _GUICtrlRichEdit_PauseRedraw($hRichEdit)
     Local $aSavedSel = _GUICtrlRichEdit_GetSel($hRichEdit)
@@ -315,7 +324,7 @@ Func _ShowAbout()
     Local $sMsgText = $sAppName & " " & $sVersion & @CRLF & _
            "-------------------------------------------" & @CRLF & _
            "AI-native Developer: " & $sAuthor & @CRLF & _
-           "Konzept & Prompt-Engineering: Roland Pahl" & @CRLF & _
+           "Konzept & Prompt-Engineering" & @CRLF & _
            "KI-Engine: " & $sAI & @CRLF & _
            "-------------------------------------------" & @CRLF & _
            "Lizenz: " & $sLicense & " (Open Source)" & @CRLF & _
