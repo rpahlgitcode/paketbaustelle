@@ -1,0 +1,242 @@
+; bat2Deploy-PAD - Professional Batch Architect
+; AI-native Developer: Roland Pahl
+#include <GUIConstantsEx.au3>
+#include <WindowsConstants.au3>
+#include <GuiRichEdit.au3>
+#include <GuiEdit.au3>
+#include <FileConstants.au3>
+#include <MsgBoxConstants.au3>
+#include <StringConstants.au3>
+#include <WinAPI.au3>
+#include <Misc.au3>
+#include <GuiStatusBar.au3>
+
+; --- Globale Identität ---
+Global $sAppName = "bat2Deploy-PAD"
+Global $sAuthor = "Roland Pahl"
+Global $sAI = "Gemini AI"
+Global $sVersion = "v1.0"
+Global $sLicense = "MIT License"
+
+; --- Hauptfenster ---
+Global $hGUI = GUICreate($sAppName, 900, 720, -1, -1, BitOR($WS_OVERLAPPEDWINDOW, $WS_CLIPCHILDREN))
+
+; --- Menüs ---
+Local $hMenuDatei = GUICtrlCreateMenu("Datei")
+Local $hOeffnen = GUICtrlCreateMenuItem("Öffnen", $hMenuDatei)
+Local $hSpeichern = GUICtrlCreateMenuItem("Speichern", $hMenuDatei)
+Local $hSpeichernUnter = GUICtrlCreateMenuItem("Speichern unter", $hMenuDatei)
+GUICtrlCreateMenuItem("", $hMenuDatei)
+Local $hBeenden = GUICtrlCreateMenuItem("Beenden", $hMenuDatei)
+
+Local $hMenuBuild = GUICtrlCreateMenu("Deployment")
+Local $hRunTest = GUICtrlCreateMenuItem("Skript lokal testen (F5)", $hMenuBuild)
+Local $hHighlight = GUICtrlCreateMenuItem("Syntax-Check (Refresh)", $hMenuBuild)
+
+Local $hMenuHilfe = GUICtrlCreateMenu("?")
+Local $hDeploymentWiki = GUICtrlCreateMenuItem("Deployment Quick-Doc", $hMenuHilfe)
+Local $hAbout = GUICtrlCreateMenuItem("Über " & $sAppName, $hMenuHilfe)
+
+; --- Statusleiste ---
+Global $hStatus = _GUICtrlStatusBar_Create($hGUI)
+Local $aParts[2] = [600, -1]
+_GUICtrlStatusBar_SetParts($hStatus, $aParts)
+_GUICtrlStatusBar_SetText($hStatus, "Deployment Architect Mode", 0)
+_GUICtrlStatusBar_SetText($hStatus, "© " & $sAuthor, 1)
+
+; --- Kontextmenü ---
+Global $hContextMenu = GUICtrlCreateContextMenu()
+Global $hCtxCopy = GUICtrlCreateMenuItem("Kopieren", $hContextMenu)
+Global $hCtxCut = GUICtrlCreateMenuItem("Ausschneiden", $hContextMenu)
+Global $hCtxPaste = GUICtrlCreateMenuItem("Einfügen", $hContextMenu)
+
+; --- Editor Aufbau ---
+Global $iZeilenBreite = 50
+Global $hZahlenFeld = GUICtrlCreateEdit("", 0, 0, $iZeilenBreite, 675, BitOR($ES_READONLY, $ES_RIGHT))
+GUICtrlSetFont($hZahlenFeld, 10, 400, 0, "Consolas")
+GUICtrlSetColor($hZahlenFeld, 0x606060)
+GUICtrlSetBkColor($hZahlenFeld, 0xECECEC)
+
+Global $hRichEdit = _GUICtrlRichEdit_Create($hGUI, "", $iZeilenBreite, 0, 850, 675, BitOR($ES_MULTILINE, $WS_VSCROLL, $ES_AUTOVSCROLL, $WS_HSCROLL))
+_GUICtrlRichEdit_SetFont($hRichEdit, 10, "Consolas")
+
+; --- Globale Variablen ---
+Global $sAktuelleDatei = ""
+Global $iLetzteZeilenAnzahl = -1
+Global $hUser32 = DllOpen("user32.dll")
+
+Dim $aAccel[4][2] = [["^c", $hCtxCopy], ["^v", $hCtxPaste], ["^x", $hCtxCut], ["{F5}", $hRunTest]]
+GUISetAccelerators($aAccel)
+
+GUISetState(@SW_SHOW, $hGUI)
+
+; --- Hauptschleife ---
+While 1
+    Local $nMsg = GUIGetMsg()
+
+    If _IsPressed("02", $hUser32) And WinActive($hGUI) Then
+        Local $aM = GUIGetCursorInfo($hGUI)
+        If Not @error And $aM[4] = 0 Then
+            Local $aP = MouseGetPos()
+            DllCall($hUser32, "bool", "TrackPopupMenu", "handle", GUICtrlGetHandle($hContextMenu), "uint", 0, "int", $aP[0], "int", $aP[1], "int", 0, "hwnd", $hGUI, "ptr", 0)
+            While _IsPressed("02", $hUser32)
+                Sleep(10)
+            WEnd
+        EndIf
+    EndIf
+
+    Switch $nMsg
+        Case $GUI_EVENT_CLOSE, $hBeenden
+            _GUICtrlRichEdit_Destroy($hRichEdit)
+            DllClose($hUser32)
+            ExitLoop
+
+        Case $hDeploymentWiki
+            _ShowDeploymentWiki()
+
+        Case $hAbout
+            MsgBox($MB_ICONINFORMATION, $sAppName, $sAppName & " " & $sVersion & @CRLF & _
+                   "-------------------------------------------" & @CRLF & _
+                   "AI-native Developer: " & $sAuthor & @CRLF & _
+                   "Konzept & Prompt-Engineering: Roland Pahl" & @CRLF & _
+                   "KI-Engine: " & $sAI & @CRLF & _
+                   "-------------------------------------------" & @CRLF & _
+                   "Lizenz: " & $sLicense & @CRLF & _
+                   "Open Source: Frei zur Modifikation & Verteilung.")
+
+        Case $hOeffnen
+            _DateiOeffnen()
+        Case $hSpeichern
+            _DateiSpeichern()
+        Case $hSpeichernUnter
+            _DateiSpeichernUnter()
+        Case $hRunTest
+            _SkriptTesten()
+        Case $hHighlight
+            _DoBatchHighlight()
+        Case $hCtxCopy
+            _GUICtrlRichEdit_Copy($hRichEdit)
+        Case $hCtxCut
+            _GUICtrlRichEdit_Cut($hRichEdit)
+        Case $hCtxPaste
+            _GUICtrlRichEdit_Paste($hRichEdit)
+    EndSwitch
+    _CheckLineNumbers()
+WEnd
+
+; ==================================================================
+; FUNKTIONEN
+; ==================================================================
+
+Func _ShowDeploymentWiki()
+    Local $hWiki = GUICreate("Deployment Quick-Doc - " & $sAuthor & " Edition", 500, 450, -1, -1, -1, $WS_EX_TOOLWINDOW, $hGUI)
+    Local $idEdit = GUICtrlCreateEdit("", 10, 10, 480, 390, BitOR($ES_READONLY, $WS_VSCROLL, $ES_MULTILINE))
+    GUICtrlSetFont($idEdit, 9, 400, 0, "Segoe UI")
+
+    Local $sWikiText = "DEPLOYMENT GUIDE (Best Practices)" & @CRLF & _
+        "========================================" & @CRLF & @CRLF & _
+        "1. VORBEREITUNG (@echo off)" & @CRLF & _
+        "Unterdrückt die Befehlsausgabe für ein sauberes Log." & @CRLF & @CRLF & _
+        "2. INSTALLATION (msiexec /i)" & @CRLF & _
+        "Startet den Windows Installer. Wichtigste Flags:" & @CRLF & _
+        "  /qn          - Vollständig leise (Silent)" & @CRLF & _
+        "  /norestart   - Verhindert ungewollte Reboots" & @CRLF & _
+        "  /L*V 'Pfad'  - Erstellt ein detailliertes Log" & @CRLF & @CRLF & _
+        "3. EXE-SETUP (/SILENT /VERYSILENT)" & @CRLF & _
+        "Standard bei InnoSetup. /VERYSILENT unterdrückt auch " & @CRLF & _
+        "das Initialisierungsfenster." & @CRLF & @CRLF & _
+        "4. VARIABLEN (set)" & @CRLF & _
+        "Nutzen Sie 'set local', um Umgebungsvariablen nur " & @CRLF & _
+        "innerhalb des Skripts gültig zu machen." & @CRLF & @CRLF & _
+        "5. STATUSPRÜFUNG (%ERRORLEVEL%)" & @CRLF & _
+        "Prüfen Sie nach jedem Befehl mit 'if %errorlevel% neq 0'," & @CRLF & _
+        "ob die Installation erfolgreich war (0 = Erfolg)." & @CRLF & @CRLF & _
+        "6. ABSCHLUSS (timeout / pause / exit)" & @CRLF & _
+        "Nutzen Sie 'pause' nur zum Debuggen, nie im Live-Rollout!"
+
+    GUICtrlSetData($idEdit, $sWikiText)
+    Local $idClose = GUICtrlCreateButton("Verstanden", 200, 410, 100, 30)
+    GUISetState(@SW_SHOW, $hWiki)
+
+    While 1
+        Switch GUIGetMsg()
+            Case $idClose, $GUI_EVENT_CLOSE
+                GUIDelete($hWiki)
+                ExitLoop
+        EndSwitch
+    WEnd
+EndFunc
+
+Func _SkriptTesten()
+    Local $sTempFile = @TempDir & "\bat2Deploy_Test.bat"
+    FileWrite($sTempFile, _GUICtrlRichEdit_GetText($hRichEdit))
+    _GUICtrlStatusBar_SetText($hStatus, "Testing Script...", 0)
+    RunWait(@ComSpec & " /k " & FileGetShortName($sTempFile))
+    FileDelete($sTempFile)
+    _GUICtrlStatusBar_SetText($hStatus, "Deployment Architect Mode", 0)
+EndFunc
+
+Func _DoBatchHighlight()
+    Local $aKeywords = [ _
+        ["@echo", 0x008000], ["set", 0x808080], ["start", 0xFF0000], ["msiexec", 0xFF0000], ["pause", 0x0000FF], _
+        ["/SILENT", 0x00A5FF], ["/VERYSILENT", 0x00A5FF], ["/DIR", 0x00A5FF], ["/LOG", 0x00A5FF], ["/qn", 0x00A5FF]]
+    _GUICtrlRichEdit_PauseRedraw($hRichEdit)
+    Local $aSavedSel = _GUICtrlRichEdit_GetSel($hRichEdit)
+    _GUICtrlRichEdit_SetSel($hRichEdit, 0, -1)
+    _GUICtrlRichEdit_SetCharColor($hRichEdit, 0x000000)
+    Local $sText = _GUICtrlRichEdit_GetText($hRichEdit)
+    For $i = 0 To UBound($aKeywords) - 1
+        Local $iPos = 1
+        While True
+            $iPos = StringInStr($sText, $aKeywords[$i][0], 0, 1, $iPos)
+            If $iPos = 0 Then ExitLoop
+            Local $sPrev = StringMid($sText, $iPos - 1, 1), $sNext = StringMid($sText, $iPos + StringLen($aKeywords[$i][0]), 1)
+            Local $sDelim = " " & @CR & @LF & @TAB & "=" & '"' & "/"
+            If ($sPrev = "" Or StringInStr($sDelim, $sPrev)) And ($sNext = "" Or StringInStr($sDelim, $sNext)) Then
+                _GUICtrlRichEdit_SetSel($hRichEdit, $iPos - 1, $iPos - 1 + StringLen($aKeywords[$i][0]))
+                _GUICtrlRichEdit_SetCharColor($hRichEdit, $aKeywords[$i][1])
+            EndIf
+            $iPos += StringLen($aKeywords[$i][0])
+        WEnd
+    Next
+    _GUICtrlRichEdit_SetSel($hRichEdit, $aSavedSel[0], $aSavedSel[1])
+    _GUICtrlRichEdit_ResumeRedraw($hRichEdit)
+EndFunc
+
+Func _CheckLineNumbers()
+    Local $iCount = _GUICtrlRichEdit_GetLineCount($hRichEdit)
+    If $iCount <> $iLetzteZeilenAnzahl Then
+        Local $sNumbers = ""
+        For $i = 1 To $iCount
+            $sNumbers &= $i & @CRLF
+        Next
+        GUICtrlSetData($hZahlenFeld, $sNumbers)
+        $iLetzteZeilenAnzahl = $iCount
+    EndIf
+EndFunc
+
+Func _DateiOeffnen()
+    Local $sFile = FileOpenDialog("Laden", @ScriptDir, "Batch (*.bat)")
+    If Not @error Then
+        _GUICtrlRichEdit_SetText($hRichEdit, FileRead($sFile))
+        $sAktuelleDatei = $sFile
+        _DoBatchHighlight()
+    EndIf
+EndFunc
+
+Func _DateiSpeichern()
+    If $sAktuelleDatei = "" Then Return _DateiSpeichernUnter()
+    Local $hFile = FileOpen($sAktuelleDatei, 2 + 256)
+    FileWrite($hFile, _GUICtrlRichEdit_GetText($hRichEdit))
+    FileClose($hFile)
+    _DoBatchHighlight()
+EndFunc
+
+Func _DateiSpeichernUnter()
+    Local $sFile = FileSaveDialog("Speichern", @ScriptDir, "Batch (*.bat)", 2)
+    If Not @error Then
+        If Not StringInStr($sFile, ".bat") Then $sFile &= ".bat"
+        $sAktuelleDatei = $sFile
+        _DateiSpeichern()
+    EndIf
+EndFunc
