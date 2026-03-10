@@ -1,5 +1,12 @@
-; bat2Deploy-PAD - Professional Batch Architect
-; AI-native Developer: Roland Pahl
+; ##################################################################
+; Project:      bat2Deploy-PAD
+; Version:      v1.0
+; Author:       Roland Pahl
+; AI-Engine:    Gemini AI
+; License:      MIT License
+; Description:  Professional Batch Architect for Deployment Tasks
+; ##################################################################
+
 #include <GUIConstantsEx.au3>
 #include <WindowsConstants.au3>
 #include <GuiRichEdit.au3>
@@ -15,7 +22,7 @@
 Global $sAppName = "bat2Deploy-PAD"
 Global $sAuthor = "Roland Pahl"
 Global $sAI = "Gemini AI"
-Global $sVersion = "v1.0"
+Global $sVersion = "v1.1" ; Version erhöht wegen Bugfix (Linebreaks)
 Global $sLicense = "MIT License"
 
 ; --- Hauptfenster ---
@@ -167,9 +174,16 @@ Func _ShowDeploymentWiki()
     WEnd
 EndFunc
 
+; FIX: Saubere Konvertierung zu CRLF für Batch-Ausführung
 Func _SkriptTesten()
     Local $sTempFile = @TempDir & "\bat2Deploy_Test.bat"
-    FileWrite($sTempFile, _GUICtrlRichEdit_GetText($hRichEdit))
+    Local $sRawText = _GUICtrlRichEdit_GetText($hRichEdit)
+    Local $sCleanText = StringRegExpReplace($sRawText, "(\r(?!\n)|(?<!\r)\n)", @CRLF)
+
+    Local $hFile = FileOpen($sTempFile, 2 + 256) ; UTF-8 ohne BOM (Batch freundlich)
+    FileWrite($hFile, $sCleanText)
+    FileClose($hFile)
+
     _GUICtrlStatusBar_SetText($hStatus, "Testing Script...", 0)
     RunWait(@ComSpec & " /k " & FileGetShortName($sTempFile))
     FileDelete($sTempFile)
@@ -224,10 +238,15 @@ Func _DateiOeffnen()
     EndIf
 EndFunc
 
+; FIX: Saubere Konvertierung zu CRLF beim Speichern
 Func _DateiSpeichern()
     If $sAktuelleDatei = "" Then Return _DateiSpeichernUnter()
+
+    Local $sRawText = _GUICtrlRichEdit_GetText($hRichEdit)
+    Local $sCleanText = StringRegExpReplace($sRawText, "(\r(?!\n)|(?<!\r)\n)", @CRLF)
+
     Local $hFile = FileOpen($sAktuelleDatei, 2 + 256)
-    FileWrite($hFile, _GUICtrlRichEdit_GetText($hRichEdit))
+    FileWrite($hFile, $sCleanText)
     FileClose($hFile)
     _DoBatchHighlight()
 EndFunc
