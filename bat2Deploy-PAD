@@ -45,7 +45,7 @@ Local $hRunTest = GUICtrlCreateMenuItem("Skript lokal testen (F5)", $hMenuBuild)
 Local $hHighlight = GUICtrlCreateMenuItem("Syntax-Check Refresh (Strg+R)", $hMenuBuild)
 
 Local $hMenuHilfe = GUICtrlCreateMenu("?")
-Local $hDeploymentWiki = GUICtrlCreateMenuItem("Deployment Quick-Doc", $hMenuHilfe)
+Local $hDeploymentWiki = GUICtrlCreateMenuItem("Help2Deploy", $hMenuHilfe)
 Local $hAbout = GUICtrlCreateMenuItem("Über " & $sAppName, $hMenuHilfe)
 
 ; --- Statusleiste ---
@@ -151,7 +151,7 @@ Func _Neu()
 EndFunc
 
 Func _ShowDeploymentWiki()
-    Local $hWiki = GUICreate("Deployment Quick-Doc", 580, 520, -1, -1, -1, $WS_EX_TOOLWINDOW, $hGUI)
+    Local $hWiki = GUICreate("Help2Deploy Quick-Doc", 580, 520, -1, -1, -1, $WS_EX_TOOLWINDOW, $hGUI)
     Local $idEdit = GUICtrlCreateEdit("", 10, 10, 560, 450, BitOR($ES_READONLY, $WS_VSCROLL, $ES_MULTILINE))
     GUICtrlSetFont($idEdit, 9, 400, 0, "Consolas")
 
@@ -164,7 +164,7 @@ Func _ShowDeploymentWiki()
         "  /qn          - Vollständig leise (Silent)" & @CRLF & _
         "  /norestart   - Verhindert ungewollte Reboots" & @CRLF & _
         "  /L*V 'Pfad'  - Erstellt ein detailliertes Log" & @CRLF & @CRLF & _
-        "3. EXE-SETUP (/SILENT /VERYSILENT)" & @CRLF & _
+        "3. EXE-SETUP (/SILENT /VERYSILENT  /SUPPRESSMSGBOXES)" & @CRLF & _
         "Standard bei InnoSetup. /VERYSILENT unterdrückt auch " & @CRLF & _
         "das Initialisierungsfenster." & @CRLF & @CRLF & _
         "4. VARIABLEN (set)" & @CRLF & _
