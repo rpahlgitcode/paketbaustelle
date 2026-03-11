@@ -1,6 +1,6 @@
 ; ##################################################################
 ; Project:      bat2Deploy-PAD
-; Version:      1.0
+; Version:      1.1
 ; Author:       Roland Pahl
 ; AI-Engine:    Gemini AI
 ; Website:      www.rolandpahl-informatik.de
@@ -21,7 +21,7 @@
 Global $sAppName = "bat2Deploy-PAD"
 Global $sAuthor = "Roland Pahl"
 Global $sAI = "Gemini AI"
-Global $sVersion = "1.0"
+Global $sVersion = "1.1"
 Global $sLicense = "MIT License"
 
 ; --- Hauptfenster ---
@@ -43,6 +43,8 @@ Local $hBeenden = GUICtrlCreateMenuItem("Beenden", $hMenuDatei)
 Local $hMenuBuild = GUICtrlCreateMenu("Deployment")
 Local $hRunTest = GUICtrlCreateMenuItem("Skript lokal testen (F5)", $hMenuBuild)
 Local $hHighlight = GUICtrlCreateMenuItem("Syntax-Check Refresh (Strg+R)", $hMenuBuild)
+GUICtrlCreateMenuItem("", $hMenuBuild)
+Local $hUninstallFinder = GUICtrlCreateMenuItem("Uninstall-Code Finder (GUID/Filesystem)", $hMenuBuild)
 
 Local $hMenuHilfe = GUICtrlCreateMenu("?")
 Local $hDeploymentWiki = GUICtrlCreateMenuItem("Help2Deploy", $hMenuHilfe)
@@ -77,6 +79,7 @@ _GUICtrlRichEdit_SetFont($hRichEdit, 10, "Consolas")
 Global $sAktuelleDatei = ""
 Global $iLetzteZeilenAnzahl = -1
 Global $hUser32 = DllOpen("user32.dll")
+Global $oErrorHandler = ObjEvent("AutoIt.Error", "_COMError")
 
 Dim $aAccel[6][2] = [["^c", $hCtxCopy], ["^v", $hCtxPaste], ["^x", $hCtxCut], ["^z", $hCtxUndo], ["{F5}", $hRunTest], ["^r", $hHighlight]]
 GUISetAccelerators($aAccel)
@@ -117,6 +120,8 @@ While 1
             _DoBatchHighlight()
         Case $hDeploymentWiki
             _ShowDeploymentWiki()
+        Case $hUninstallFinder
+            _ShowUninstallFinder()
         Case $hCtxUndo
             _GUICtrlRichEdit_Undo($hRichEdit)
         Case $hCtxCopy
@@ -134,6 +139,104 @@ WEnd
 ; ==================================================================
 ; FUNKTIONEN
 ; ==================================================================
+
+; --- Ersetze die bestehende Funktion _ShowUninstallFinder durch diese optimierte Version ---
+
+Func _ShowUninstallFinder()
+    Local $sFile = FileOpenDialog("Installer für Check wählen", @ScriptDir, "Installer (*.msi;*.exe)")
+    If @error Then Return
+
+    Local $sResult = "", $sFoundFiles = ""
+    Local $sExt = StringLower(StringRight($sFile, 3))
+    Local $sFileName = StringTrimLeft($sFile, StringInStr($sFile, "\", 0, -1))
+    Local $sFilePath = StringLeft($sFile, StringInStr($sFile, "\", 0, -1))
+
+    If $sExt = "msi" Then
+        ; --- MSI COM READER (unverändert) ---
+        Local $oInstaller = ObjCreate("WindowsInstaller.Installer")
+        If IsObj($oInstaller) Then
+            Local $oDatabase = $oInstaller.OpenDatabase($sFile, 0)
+            If IsObj($oDatabase) Then
+                Local $oView = $oDatabase.OpenView("SELECT `Value` FROM `Property` WHERE `Property` = 'ProductCode'")
+                $oView.Execute()
+                Local $oRecord = $oView.Fetch()
+                If IsObj($oRecord) Then
+                    $sResult = ":: MSI PRODUCT CODE (GUID)" & @CRLF & "msiexec /x " & $oRecord.StringData(1) & " /qn /norestart"
+                EndIf
+            EndIf
+        EndIf
+    Else
+        ; --- EXE ULTRA FS SCAN (v1.1 Logik integriert) ---
+        Local $sProdName = FileGetVersion($sFile, "ProductName")
+        If $sProdName = "" Then $sProdName = FileGetVersion($sFile, "FileDescription")
+        If $sProdName = "" Then
+            $sProdName = StringRegExpReplace($sFileName, "(?i)([-_]?x\d{2}|[\d\._]+|setup|install|de_DE|en_US)", "")
+            $sProdName = StringTrimRight($sProdName, 4)
+        EndIf
+        $sProdName = StringStripWS($sProdName, 3)
+
+        ; Suche-Varianten (mit/ohne Sonderzeichen für 7-Zip etc.)
+        Local $sCleanName = StringRegExpReplace($sProdName, "[^a-zA-Z0-9]", "")
+        Local $sShortSearch = StringLeft($sCleanName, 4)
+
+        $sResult = "Analyse für: " & $sProdName & @CRLF & "-----------------------------------" & @CRLF
+
+        Local $aCheckPaths[3] = [@ProgramFilesDir, @HomeDrive & "\Program Files (x86)", $sFilePath]
+
+        For $sPath In $aCheckPaths
+            If Not FileExists($sPath) Then ContinueLoop
+            Local $hDirSearch = FileFindFirstFile($sPath & "\*")
+            If $hDirSearch <> -1 Then
+                While 1
+                    Local $sDirFound = FileFindNextFile($hDirSearch)
+                    If @error Then ExitLoop
+
+                    ; Prüfung auf Original-Name ODER Fuzzy-Name
+                    If StringInStr($sDirFound, $sProdName) Or StringInStr($sDirFound, $sShortSearch) Or ($sCleanName <> "" And StringInStr($sDirFound, $sCleanName)) Then
+                        Local $sFullDirPath = $sPath & "\" & $sDirFound
+
+                        ; Erweitertes Suchmuster (inkl. Uninstall.exe)
+                        Local $aPatterns[4] = ["uninstall.exe", "uninst*.exe", "unins00*.exe", "setup.exe"]
+                        For $p In $aPatterns
+                            Local $hUnSearch = FileFindFirstFile($sFullDirPath & "\" & $p)
+                            If $hUnSearch <> -1 Then
+                                While 1
+                                    Local $sUnFile = FileFindNextFile($hUnSearch)
+                                    If @error Then ExitLoop
+                                    $sFoundFiles &= "PFAD GEFUNDEN: " & $sFullDirPath & @CRLF & " -> Befehl: """ & $sFullDirPath & "\" & $sUnFile & """ /S" & @CRLF & @CRLF
+                                WEnd
+                                FileClose($hUnSearch)
+                            EndIf
+                        Next
+                    EndIf
+                WEnd
+                FileClose($hDirSearch)
+            EndIf
+        Next
+
+        If $sFoundFiles <> "" Then
+            $sResult &= $sFoundFiles
+        Else
+            $sResult &= ":: KEINE AUTOMATISCHEN PFADE GEFUNDEN" & @CRLF & _
+                       "Tipp: Schauen Sie manuell unter: " & @ProgramFilesDir & "\" & $sProdName
+        EndIf
+    EndIf
+
+    ; UI Anzeige (unverändert aus Basis 1.1)
+    Local $hUIFinder = GUICreate("Uninstall Finder Result", 650, 420, -1, -1, -1, $WS_EX_TOOLWINDOW, $hGUI)
+    Local $idEdit = GUICtrlCreateEdit($sResult, 10, 10, 630, 350, BitOR($ES_READONLY, $WS_VSCROLL, $ES_MULTILINE))
+    GUICtrlSetFont($idEdit, 9, 400, 0, "Consolas")
+    Local $idClose = GUICtrlCreateButton("Schließen", 275, 375, 100, 30)
+    GUISetState(@SW_SHOW, $hUIFinder)
+
+    While 1
+        Switch GUIGetMsg()
+            Case $idClose, $GUI_EVENT_CLOSE
+                GUIDelete($hUIFinder)
+                ExitLoop
+        EndSwitch
+    WEnd
+EndFunc
 
 Func _Neu()
     If _GUICtrlRichEdit_IsModified($hRichEdit) Then
@@ -234,8 +337,6 @@ Func _TemplateErstellen($sType)
     _DoBatchHighlight()
 EndFunc
 
-; ... [Restliche Funktionen identisch wie v1.4.5] ...
-
 Func _SkriptTesten()
     Local $sTempFile = @TempDir & "\bat2Deploy_Test.bat"
     Local $sRawText = _GUICtrlRichEdit_GetText($hRichEdit)
@@ -248,27 +349,68 @@ Func _SkriptTesten()
 EndFunc
 
 Func _DoBatchHighlight()
-    Local $cLogik = 0x008000, $cInstall = 0xFF0000, $cNetz = 0x0000FF, $cFile = 0x696969, $cSteuer = 0xFF8C00, $cSystem = 0x800080, $cParam = 0x00A5FF
+    ; Farbcodes definieren
+    Local $cLogik = 0x008000, $cInstall = 0xFF0000, $cNetz = 0x0000FF, $cFile = 0x696969
+    Local $cSteuer = 0xFF8C00, $cSystem = 0x800080, $cParam = 0x00A5FF, $cVar = 0x9932CC
+
+    ; Keywords und Schalter
+    ; WICHTIG: Leerzeichen um Keywords verhindern Treffer innerhalb anderer Wörter (z.B. ge"start"et)
     Local $aKeywords = [ _
-        ["@echo", $cLogik], ["echo", $cLogik], ["set", $cLogik], ["rem", 0x808080], ["if", $cLogik], ["else", $cLogik], _
-        ["start", $cInstall], ["msiexec", $cInstall], ["ping", $cNetz], ["copy", $cFile], ["xcopy", $cFile], _
-        ["timeout", $cSteuer], ["pause", $cSteuer], ["reg", $cSystem], ["/qn", $cParam]]
+        ["@echo", $cLogik], ["echo ", $cLogik], ["set ", $cLogik], ["rem ", 0x808080], ["if ", $cLogik], ["else ", $cLogik], _
+        ["start ", $cInstall], ["msiexec", $cInstall], ["taskkill", $cInstall], ["mkdir ", $cFile], _
+        ["copy ", $cFile], ["xcopy ", $cFile], ["timeout ", $cSteuer], ["pause", $cSteuer], _
+        ["/wait", $cSteuer], ["/IM", $cParam], ["/qn", $cParam], ["/norestart", $cParam], _
+        ["/I", $cParam], ["/E", $cParam], ["/H", $cParam], ["/K", $cParam], ["/R", $cParam], ["/Y", $cParam], ["/S", $cParam], _
+        ["%~dp0", $cVar]]
 
     _GUICtrlRichEdit_PauseRedraw($hRichEdit)
+
+    ; 1. Alles auf Schwarz zurücksetzen
     Local $aSavedSel = _GUICtrlRichEdit_GetSel($hRichEdit)
     _GUICtrlRichEdit_SetSel($hRichEdit, 0, -1)
     _GUICtrlRichEdit_SetCharColor($hRichEdit, 0x000000)
+
     Local $sText = _GUICtrlRichEdit_GetText($hRichEdit)
+
+    ; 2. Variablen-Highlighting (Alles zwischen % und %)
+    Local $aVars = StringRegExp($sText, "%[a-zA-Z0-9_]+%", 3)
+    If Not @error Then
+        For $sVar In $aVars
+            Local $iPos = 1
+            While True
+                $iPos = StringInStr($sText, $sVar, 0, 1, $iPos)
+                If $iPos = 0 Then ExitLoop
+                _GUICtrlRichEdit_SetSel($hRichEdit, $iPos - 1, $iPos - 1 + StringLen($sVar))
+                _GUICtrlRichEdit_SetCharColor($hRichEdit, $cVar)
+                $iPos += StringLen($sVar)
+            WEnd
+        Next
+    EndIf
+
+    ; 3. Keyword-Highlighting
     For $i = 0 To UBound($aKeywords) - 1
         Local $iPos = 1
+        Local $sKey = $aKeywords[$i][0]
         While True
-            $iPos = StringInStr($sText, $aKeywords[$i][0], 0, 1, $iPos)
+            $iPos = StringInStr($sText, $sKey, 0, 1, $iPos)
             If $iPos = 0 Then ExitLoop
-            _GUICtrlRichEdit_SetSel($hRichEdit, $iPos - 1, $iPos - 1 + StringLen($aKeywords[$i][0]))
-            _GUICtrlRichEdit_SetCharColor($hRichEdit, $aKeywords[$i][1])
-            $iPos += StringLen($aKeywords[$i][0])
+
+            ; Prüfung auf Wortgrenze (verhindert Highlighting in "gestartet")
+            Local $bValid = True
+            If $iPos > 1 Then
+                Local $sPrevChar = StringMid($sText, $iPos - 1, 1)
+                ; Wenn davor ein Buchstabe steht, ist es Teil eines anderen Wortes
+                If StringRegExp($sPrevChar, "[a-zA-Z0-9]") Then $bValid = False
+            EndIf
+
+            If $bValid Then
+                _GUICtrlRichEdit_SetSel($hRichEdit, $iPos - 1, $iPos - 1 + StringLen($sKey))
+                _GUICtrlRichEdit_SetCharColor($hRichEdit, $aKeywords[$i][1])
+            EndIf
+            $iPos += StringLen($sKey)
         WEnd
     Next
+
     _GUICtrlRichEdit_SetSel($hRichEdit, $aSavedSel[0], $aSavedSel[1])
     _GUICtrlRichEdit_ResumeRedraw($hRichEdit)
 EndFunc
@@ -322,15 +464,15 @@ EndFunc
 
 Func _ShowAbout()
     Local $sMsgText = $sAppName & " " & $sVersion & @CRLF & _
-           "-------------------------------------------" & @CRLF & _
-           "AI-native Developer: " & $sAuthor & @CRLF & _
-           "Konzept & Prompt-Engineering" & @CRLF & _
-           "KI-Engine: " & $sAI & @CRLF & _
-           "-------------------------------------------" & @CRLF & _
-           "Lizenz: " & $sLicense & " (Open Source)" & @CRLF & _
-           "Web: www.rolandpahl-informatik.de" & @CRLF & _
-           "-------------------------------------------" & @CRLF & _
-           "Frei zur Modifikation und Weitergabe unter" & @CRLF & _
-           "Einhaltung der MIT-Lizenzbedingungen."
+            "-------------------------------------------" & @CRLF & _
+            "AI-native Developer: " & $sAuthor & @CRLF & _
+            "Konzept & Prompt-Engineering" & @CRLF & _
+            "KI-Engine: " & $sAI & @CRLF & _
+            "-------------------------------------------" & @CRLF & _
+            "Lizenz: " & $sLicense & " (Open Source)" & @CRLF & _
+            "Web: www.rolandpahl-informatik.de" & @CRLF & _
+            "-------------------------------------------" & @CRLF & _
+            "Frei zur Modifikation und Weitergabe unter" & @CRLF & _
+            "Einhaltung der MIT-Lizenzbedingungen."
     MsgBox($MB_ICONINFORMATION, "Über " & $sAppName, $sMsgText)
 EndFunc
