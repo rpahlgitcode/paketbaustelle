@@ -99,6 +99,15 @@ While 1
 
     Switch $nMsg
         Case $GUI_EVENT_CLOSE, $hBeenden
+            ; --- PRÜFUNG: Änderungen beim Schließen ---
+            If _GUICtrlRichEdit_IsModified($hRichEdit) Then
+                Local $iQuest = MsgBox($MB_YESNOCANCEL + $MB_ICONQUESTION, $sAppName, "Die Datei wurde geändert. Möchten Sie die Änderungen speichern?")
+                If $iQuest = $IDYES Then
+                    _DateiSpeichern() ; Speichert und setzt Modified-Flag zurück
+                ElseIf $iQuest = $IDCANCEL Then
+                    ContinueLoop ; Bricht den Schließvorgang ab
+                EndIf
+            EndIf
             _GUICtrlRichEdit_Destroy($hRichEdit)
             DllClose($hUser32)
             ExitLoop
@@ -437,8 +446,12 @@ Func _DateiOeffnen()
     If Not @error Then
         _GUICtrlRichEdit_SetText($hRichEdit, FileRead($sFile))
         $sAktuelleDatei = $sFile
+
+        ; --- FLAG ZURÜCKSETZEN: Datei gilt als unberührt ---
         _GUICtrlRichEdit_SetModified($hRichEdit, False)
+
         _DoBatchHighlight()
+        _GUICtrlStatusBar_SetText($hStatus, "Datei geladen: " & $sAktuelleDatei, 0)
     EndIf
 EndFunc
 
@@ -449,8 +462,12 @@ Func _DateiSpeichern()
     Local $hFile = FileOpen($sAktuelleDatei, 2 + 256)
     FileWrite($hFile, $sCleanText)
     FileClose($hFile)
+
+    ; --- FLAG ZURÜCKSETZEN: Stand auf Festplatte = Stand im Editor ---
     _GUICtrlRichEdit_SetModified($hRichEdit, False)
+
     _DoBatchHighlight()
+    _GUICtrlStatusBar_SetText($hStatus, "Datei gespeichert.", 0)
 EndFunc
 
 Func _DateiSpeichernUnter()
