@@ -1,0 +1,62 @@
+Freeware-Lizenz
+
+Lizenzbedingungen für time2present rp
+Version: 1.0
+Stand: 16.03.2026
+Copyright © 2026 Roland Pahl
+
+Digitaler Fingerprint der ausführbaren Anwendungsdatei
+
+Algorithm       Hash                                                                   
+---------       ----                                                                   
+SHA256          584D964C58C8297CA03D9253A870738943C7786AA1502D0BEEC3469463CA2295 
+
+1. Nutzungsrecht
+
+Die Software wird kostenlos (Freeware) zur Verfügung gestellt.
+Der Nutzer erhält das nicht ausschließliche, zeitlich unbegrenzte Recht, die Software:
+kostenlos zu nutzen
+auf eigenen Systemen zu installieren
+unverändert weiterzugeben
+Eine kommerzielle Nutzung ist erlaubt, sofern die Software selbst nicht verkauft oder vermietet wird.
+
+2. Weitergabe
+
+Die Weitergabe der Software ist nur in unveränderter Form und unter Beibehaltung dieser Lizenzbedingungen gestattet.
+
+Es ist nicht erlaubt:
+die Software zu verändern, zu dekompilieren oder zurückzuentwickeln
+Teile der Software separat zu verbreiten
+die Software entgeltlich anzubieten
+
+3. Urheberrecht
+
+Alle Rechte an der Software verbleiben beim Autor.
+Der Urheber bleibt Roland Pahl.
+
+4. Haftungsausschluss
+
+Die Software wird „wie sie ist“ zur Verfügung gestellt.
+Es wird keine Gewähr für:
+Fehlerfreiheit
+Funktionsfähigkeit in jeder Systemumgebung
+Datenintegrität
+Schadensfreiheit
+übernommen.
+
+Die Nutzung erfolgt auf eigenes Risiko.
+Der Autor haftet nicht für direkte oder indirekte Schäden, Datenverlust oder Folgeschäden, die durch die Nutzung der Software entstehen.
+
+5. Datenschutz-Hinweis
+
+Die Software verarbeitet sämtliche Daten ausschließlich lokal auf dem jeweiligen Gerät.
+Es findet keine Übertragung von Daten an den Autor oder Dritte statt.
+
+6. Entwickelt 
+
+Dieses Programm wurde mit AutoIt erstellt.
+AutoIt ist eine Open-Source-Software unter der GNU General Public License.
+
+7. Reverse Engineering & Schutz
+
+Das Dekompilieren oder Zurückentwickeln der Software ist untersagt.
